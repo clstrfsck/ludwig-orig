@@ -1,0 +1,923 @@
+{**********************************************************************}
+{                                                                      }
+{            L      U   U   DDDD   W      W  IIIII   GGGG              }
+{            L      U   U   D   D   W    W     I    G                  }
+{            L      U   U   D   D   W ww W     I    G   GG             }
+{            L      U   U   D   D    W  W      I    G    G             }
+{            LLLLL   UUU    DDDD     W  W    IIIII   GGGG              }
+{                                                                      }
+{**********************************************************************}
+{                                                                      }
+{   Copyright (C) 1981, 1987                                           }
+{   Department of Computer Science, University of Adelaide, Australia  }
+{   All rights reserved.                                               }
+{   Reproduction of the work or any substantial part thereof in any    }
+{   material form whatsoever is prohibited.                            }
+{                                                                      }
+{**********************************************************************}
+
+{++
+! Name:         FILESYS
+!
+! Description:  This routine parses the command line, and filenames.
+!
+! Revision History:
+!
+!       Created for MS-DOS port.
+!--}
+
+unit filesys;
+
+interface
+uses dos, crt, value, msdos, ch, screen;
+{$I filesys.h}
+
+implementation
+
+const
+file_type_width = 3;
+tmp_file_name = 'LUDWIG-T.';
+
+var
+dos_error : integer;
+msg_string : string;
+
+
+{}procedure filesys_findfirst(fyle:file_ptr; file_attr:byte; var s:searchrec);
+
+var
+tmp_fn : string;
+begin
+move(fyle^.fnm, tmp_fn[1], fyle^.fns);
+tmp_fn[0] := chr(fyle^.fns);
+findfirst(tmp_fn, file_attr, s);
+dos_error := doserror;
+end;
+
+{}procedure filesys_assign(var fyle:file;
+			     fyle_name:file_name_str;
+			     fyle_size:integer);
+
+var
+tmp_fn : string;
+begin
+move(fyle_name, tmp_fn[1], fyle_size);
+tmp_fn[0] := chr(fyle_size);
+{$I-}
+assign(fyle, tmp_fn);
+{$I+}
+end;
+
+{}procedure filesys_rename(var fyle:file;
+			     fyle_name:file_name_str;
+			     fyle_size:integer);
+
+var
+tmp_fd : file;
+tmp_s : searchrec;
+tmp_fn : string;
+begin
+move(fyle_name, tmp_fn[1], fyle_size);
+tmp_fn[0] := chr(fyle_size);
+findfirst(tmp_fn, anyfile, tmp_s);
+if doserror = 0 then
+  begin
+  assign(tmp_fd, tmp_fn);
+  erase(tmp_fd);
+  end;
+{$I-}
+rename(fyle, tmp_fn);
+{$I+}
+end;
+
+
+{}function filesys_expand_file_name(var fnm:file_name_str;
+				      fns:integer)
+	: boolean;
+
+begin
+filesys_expand_file_name := true;
+end;
+
+function filesys_create_open {(
+		fyle  : file_ptr;
+		related_file : file_ptr;
+		msgs : boolean)
+	: boolean};
+
+label 99;
+var
+i,
+unique_number : integer;
+u_str : str_object;
+tmp_fn_string : string;
+file_info : searchrec;
+buffer_index : integer;
+buffer    : str_object;
+tmp_str   : string;
+
+begin
+filesys_create_open := false;
+{#if debug}
+{##if fyle^.zed <> 'Z' then}
+{##  begin}
+{##  screen_message(dbg_badfile);}
+{##  goto 99;}
+{##  end;}
+{#endif}
+fyle^.l_counter := 0;
+if fyle^.output_flag then
+  begin
+  {open a file for writing.}
+  if filesys_expand_file_name(fyle^.fnm, fyle^.fns) then
+    begin
+    filesys_findfirst(fyle, anyfile, file_info);
+    if dos_error = 0 then
+      begin
+      buffer_index := 1;
+      fillchar(buffer[buffer_index], sizeof(buffer), ' ');
+      if fyle^.create then
+	begin
+	tmp_str := 'File ';
+	move(tmp_str[1], buffer[buffer_index], length(tmp_str));
+	buffer_index := buffer_index + length(tmp_str);
+	move(fyle^.fnm[1], buffer[buffer_index], fyle^.fns);
+	buffer_index := buffer_index + fyle^.fns;
+	tmp_str := ' already exists.';
+	move(tmp_str[1], buffer[buffer_index], length(tmp_str));
+	buffer_index := buffer_index + length(tmp_str);
+	screen_msdos_message(buffer);
+	goto 99;
+	end;
+      if (file_info.attr and readonly) <> 0 then
+	begin
+	tmp_str := 'Write access to file (';
+	move(fyle^.fnm[1], tmp_str[succ(length(tmp_str))], fyle^.fns);
+	tmp_str[0] := chr(fyle^.fns + length(tmp_str));
+	tmp_str := concat(tmp_str,') is denied.');
+	move(tmp_str[1], buffer[1], length(tmp_str));
+	screen_msdos_message(buffer);
+	goto 99;
+	end;
+      end;
+    unique_number := 0;
+    repeat
+      inc(unique_number);
+      if cvt_int_str(unique_number, u_str, file_type_width) then ;
+      i := 1;
+      while u_str[i] = ' ' do
+	begin
+	u_str[i] := '0';
+	inc(i);
+	end;
+      while u_str[i] <> chr(0) do
+	inc(i);
+      dec(i);
+      if i > file_type_width then
+	begin
+	screen_msdos_string_message('Unable to create temporary file');
+	goto 99;
+	end;
+      tmp_fn_string := tmp_file_name;
+      move(u_str, tmp_fn_string[succ(length(tmp_fn_string))], file_type_width);
+      tmp_fn_string[0] := chr(length(tmp_fn_string) + file_type_width);
+      {NOTE --- Not filesys_findfirst so we have to check the real doserror}
+      findfirst(tmp_fn_string, anyfile, file_info);
+    until doserror <> 0;
+
+    move(tmp_fn_string[1], fyle^.tnm, length(tmp_fn_string));
+    fyle^.tns := length(tmp_fn_string);
+    filesys_assign(fyle^.fd, fyle^.tnm, fyle^.tns);
+    {$I-}
+    rewrite(fyle^.fd, 1);
+    {$I+}
+    filesys_create_open := true;
+    end;
+  end
+else
+  begin
+  {open a file for reading.}
+  if msgs then
+    begin
+    if filesys_expand_file_name(fyle^.fnm, fyle^.fns) then
+      begin
+      filesys_findfirst(fyle, anyfile, file_info);
+      if dos_error = 0 then
+	begin
+	filesys_create_open := true{(file_info.attr and $3f) = 0};
+	filesys_assign(fyle^.fd, fyle^.fnm, fyle^.fns);
+	reset(fyle^.fd, 1);
+	end;
+      end
+    else
+      begin
+      buffer_index := 1;
+      fillchar(buffer[buffer_index], sizeof(buffer), ' ');
+      tmp_str := 'Error in filename ';
+      move(tmp_str[1], buffer[buffer_index], length(tmp_str));
+      buffer_index := buffer_index + length(tmp_str);
+      move(fyle^.fnm[1], buffer[buffer_index], fyle^.fns);
+      screen_msdos_message(buffer);
+      end;
+    end
+  else
+    begin
+    {in unix this executes a command, in vms we display error messages}
+    end;
+  end;
+
+99:
+end;
+
+function filesys_close {(
+		fyle   : file_ptr;
+		delete,
+		msgs   : boolean)
+	: boolean};
+
+var
+i : integer;
+tmp_str : str_object;
+envfile : file;
+begin
+filesys_close := false;
+if not fyle^.output_flag then
+  begin
+  {$I-}
+  close(fyle^.fd);
+  {$I+}
+  if ioresult = 0 then
+    begin
+    if msgs then
+      begin
+      msg_string := 'File ';
+      move(fyle^.fnm, msg_string[succ(length(msg_string))], fyle^.fns);
+      msg_string[0] := chr(length(msg_string) + fyle^.fns);
+      msg_string := concat(msg_string ,' closed (');
+      if cvt_int_str(fyle^.l_counter, tmp_str, 1) then ;
+      i := 1;
+      while tmp_str[i] <> chr(0) do
+	begin
+	msg_string := concat(msg_string, tmp_str[i]);
+	inc(i);
+	end;
+      screen_msdos_string_message(concat(msg_string, ' lines read).'));
+      end;
+    filesys_close := true;
+    end;
+  end
+else
+  begin
+  {$I-}
+  close(fyle^.fd);
+  {$I+}
+  if ioresult = 0 then
+    begin
+    if delete then
+      begin
+      {$I-}
+      erase(fyle^.fd);
+      {$I+}
+      if ioresult = 0 then
+	begin
+	if msgs then
+	  begin
+	  msg_string := 'Output file ';
+	  move(fyle^.fnm, msg_string[succ(length(msg_string))], fyle^.fns);
+	  msg_string[0] := chr(length(msg_string) + fyle^.fns);
+	  msg_string := concat(msg_string, ' deleted.');
+	  screen_msdos_string_message(msg_string);
+	  end;
+	filesys_close := true;
+	end;
+      end
+    else
+      begin
+      filesys_rename(fyle^.fd, fyle^.fnm, fyle^.fns);
+      if ioresult <> 0 then
+	begin
+	msg_string := 'filesysclose : cannot rename ';
+	move(fyle^.tnm, msg_string[succ(length(msg_string))], fyle^.tns);
+	msg_string[0] := chr(length(msg_string) + fyle^.tns);
+	msg_string := concat(msg_string, ' to ');
+	move(fyle^.fnm, msg_string[succ(length(msg_string))], fyle^.fns);
+	msg_string[0] := chr(length(msg_string) + fyle^.fns);
+	msg_string := concat(msg_string ,'.');
+	screen_msdos_string_message(msg_string);
+	end
+      else
+	begin
+	if msgs then
+	  begin
+	  msg_string := 'File ';
+	  move(fyle^.fnm, msg_string[succ(length(msg_string))], fyle^.fns);
+	  msg_string[0] := chr(length(msg_string) + fyle^.fns);
+	  msg_string := concat(msg_string, ' created.');
+	  screen_msdos_string_message(msg_string);
+	  end;
+	filesys_close := true;
+	if fyle^.memory_size <> 0 then
+	  begin
+	  {$I-}
+	  filesys_assign(envfile, fyle^.memory, fyle^.memory_size);
+	  rewrite(envfile, 1);
+	  if ioresult = 0 then
+	    begin
+	    blockwrite(envfile, fyle^.fnm, fyle^.fns);
+	    close(envfile);
+	    end;
+	  {$I+}
+	  end;
+	end;
+      end;
+    end;
+  end;
+end; {of filesys_close}
+
+function filesys_read {(
+		fyle   : file_ptr;
+	var     buffer : str_object;
+	var     outlen : strlen_range)
+	: boolean};
+
+label 99;
+var
+finished : boolean;
+ch : char;
+expand : byte;
+begin
+filesys_read := true;
+outlen := 1;
+finished := false;
+repeat
+  if fyle^.idx > fyle^.len then
+    begin
+    {$I-}
+    blockread(fyle^.fd, fyle^.buf[1], max_buffer_len, fyle^.len);
+    {$I+}
+    fyle^.idx := 1;
+    if ioresult <> 0 then
+      begin
+      filesys_read := false;
+      goto 99
+      end;
+    end;
+  if fyle^.idx <= fyle^.len {not fyle^.eof} then
+    begin
+    fyle^.eof := (fyle^.len < max_buffer_len) and (fyle^.len = fyle^.idx);
+    ch := fyle^.buf[fyle^.idx];
+    inc(fyle^.idx);
+    if (ch > chr(31)) and (ch < chr(del)) then
+      begin
+      buffer[outlen] := ch;
+      inc(outlen);
+      end
+    else
+      begin
+      if ch = chr(tab) then
+	begin
+	expand := (8-(outlen mod 8));
+	if outlen+expand > max_buffer_len then
+	  expand := max_buffer_len-outlen;
+	for expand := 0 to expand do
+	  begin
+	  buffer[outlen] := ' ';
+	  inc(outlen);
+	  end;
+	end
+      end;
+    end
+  else
+    begin
+    filesys_read := outlen <> 1;
+    ch := chr(lf);
+    end;
+until (ch = chr(lf)) or (outlen = max_buffer_len);
+dec(outlen);
+inc(fyle^.l_counter);
+99:
+end; {of filesys_read}
+
+function filesys_rewind {(
+		fyle : file_ptr)
+	: boolean};
+
+begin
+filesys_rewind := false;
+
+{$I-}
+seek(fyle^.fd,0);
+{$I+}
+if ioresult<> 0 then
+ begin
+ filesys_rewind := true;
+ fyle^.idx := 0;
+ fyle^.len := 0;
+ fyle^.eof := false;
+ fyle^.l_counter := 0;
+ end;
+end; {of filesys_rewind}
+
+function filesys_write {(
+		fyle   : file_ptr;
+	var     buffer : str_object;
+		bufsiz : strlen_range)
+	: boolean};
+
+var
+i,
+tabs,
+offset,
+count : word;
+cr_lf : string[2];
+finished : boolean;
+
+begin
+filesys_write := false;
+offset := 0;
+cr_lf := concat(chr(cr),chr(lf));
+tabs := 0;
+finished := false;
+if fyle^.entab then
+  begin
+  i := 0;
+  while (i < bufsiz) and not finished do
+    begin
+    inc(i);
+    finished := buffer[i] <> ' ';
+    end;
+  tabs := i div 8;
+  offset := tabs*7;
+  for i := 0 to tabs do
+    buffer[offset+i] := chr(tab);
+  end;
+
+blockwrite(fyle^.fd, buffer[succ(offset)], bufsiz-offset, count);
+
+if tabs <> 0 then
+  for i := 0 to tabs do
+    buffer[offset+i] := ' ';
+if count = bufsiz-offset then
+  begin
+  blockwrite(fyle^.fd, cr_lf[1], length(cr_lf));
+  inc(fyle^.l_counter);
+  filesys_write := true;
+  end;
+end; {of filesys_write}
+
+function  filesys_parse {(
+	var     command_line : file_name_str;
+		parse        : parse_type;
+	var     file_data    : file_data_type;
+	var     input_file   : file_ptr;
+	var     output_file  : file_ptr)
+	: boolean};
+
+label 99;
+const
+usage1 = 'usage : ludwig [-c] [-r] [-i value] [-I] [-s value] [-m file] [-M]';
+usage2 = '               [-t] [-T] [-b value] [-B value] [-o] [-O] [-u]';
+usage3 = '               [file [file]]';
+file_usage = 'usage : [-m file] [-t] [-T] [-b value] [-B value] [file [file]]';
+
+var
+initialize,
+memory,
+default_memory,
+default_init : string;
+
+envfile : text;
+
+file_names : array[0..1] of string;
+
+file_count,
+option_index,
+versions,
+space : integer;
+
+tmp_str : string;
+
+purge,
+entab,
+check_input_file,
+errors,
+space_flag,
+usage_flag,
+version_flag,
+create_flag,
+read_only_flag : boolean;
+
+ch : char;
+
+  procedure skip_spaces;
+  begin
+  while (command_line[option_index] = ' ') and
+	(option_index < length(command_line)) do
+    inc(option_index);
+  end;
+
+  function get_next_integer:integer;
+  begin
+  get_next_integer := 0;
+  end;
+
+  function get_next_string : string;
+  var
+  tmp_index : byte;
+  begin
+  get_next_string := '';
+  while (command_line[option_index] = ' ') and
+	(option_index < length(command_line)) do
+    inc(option_index);
+  if option_index < length(command_line) then
+    begin
+    tmp_index := option_index;
+    while (option_index < length(command_line)) and
+	  (command_line[option_index] <> ' ') do
+      inc(option_index);
+    if tmp_index <> option_index then
+      get_next_string := copy(command_line, tmp_index, option_index-tmp_index);
+    end;
+  end;
+
+  procedure skip_to_hyphen;
+  begin
+  while (command_line[option_index] <> '-') and
+	(option_index < length(command_line)) do
+    inc(option_index);
+  if option_index = length(command_line) then
+    option_index := 0;
+  end;
+
+begin
+filesys_parse := false;
+if parse = parse_stdin then
+  begin
+  input_file^.valid := true;
+  assign(input_file^.fd, 'CON');
+  input_file^.eof := false;
+  input_file^.l_counter := 0;
+  filesys_parse := true;
+  end
+else
+  begin
+  {parse command_line}
+  entab := file_data.entab;
+  space := file_data.space;
+  purge := file_data.purge;
+  versions := file_data.versions;
+  create_flag := false;
+  read_only_flag := false;
+  space_flag := false;
+  usage_flag := false;
+  version_flag := false;
+  errors := false;
+  check_input_file := false;
+  if parse = parse_command then
+    begin
+    default_init := concat(''{current_dir}, '\ludwig.rc');
+    initialize := default_init;
+    default_memory := concat(''{current_dir}, '\ludwig.mem');
+    memory := default_memory;
+    end
+  else
+    begin
+    initialize := '';
+    memory := '';
+    end;
+  option_index := 1;
+  if command_line = '' then
+    option_index := 0
+  else
+    begin
+    option_index := 1;
+    skip_spaces;
+    end;
+
+  file_count := 0;
+  if option_index <> 0 then
+    begin
+    while command_line[option_index] = '-' do
+      begin
+      inc(option_index);
+      case command_line[option_index] of
+	'c' :
+	  if read_only_flag then
+	    inc(errors)
+	  else
+	    create_flag := true;
+	'r' :
+	  if create_flag then
+	    inc(errors)
+	  else
+	    read_only_flag := true;
+	'i' :
+	  begin
+	  initialize := get_next_string;
+	  end;
+	'I' :
+	  initialize := '';
+	's' :
+	  begin
+	  space_flag := true;
+	  space := get_next_integer;
+	  end;
+	'm' :
+	  begin
+	  memory := get_next_string;
+	  end;
+	'M' :
+	  memory := '';
+	't' :
+	  entab := true;
+	'T' :
+	  entab := false;
+	'b' :
+	  begin
+	  purge := false;
+	  versions := get_next_integer;
+	  end;
+	'B' :
+	  begin
+	  purge := true;
+	  versions := get_next_integer;
+	  end;
+	'o' :
+	  begin
+	  version_flag := true;
+	  file_data.old_cmds := true;
+	  end;
+	'O' :
+	  begin
+	  version_flag := true;
+	  file_data.old_cmds := false;
+	  end;
+	'u' :
+	  usage_flag := true;
+      end; {of case}
+      inc(option_index);
+      skip_spaces;
+      end; {of while command_line[option_index] = '-'}
+
+    if usage_flag or errors then
+      begin
+      if parse = parse_command then
+	begin
+	write(usage1);
+	write(usage2);
+	write(usage3);
+	end
+      else
+	write(file_usage);
+      goto 99;
+      end;
+    if parse = parse_command then
+      begin
+      if initialize <> '' then
+	ch_copy(initialize[1], 1, length(initialize),
+		file_data.initial[1], 1, pred(sizeof(file_data.initial)), ' ')
+      else
+	ch_fill(file_data.initial[1], 1, pred(sizeof(file_data.initial)), ' ');
+      file_data.space := space;
+      file_data.entab := entab;
+      file_data.purge := purge;
+      file_data.versions := versions;
+      end
+    else
+      if create_flag or read_only_flag or space_flag or version_flag or
+	 (initialize <> '')  then
+	goto 99;
+    while option_index < length(command_line) do
+      begin
+      if file_count >= 2 then
+	begin
+	screen_msdos_string_message('More than two files specified.');
+	goto 99;
+	end
+      else
+	begin
+	file_names[file_count] := get_next_string;
+	inc(file_count);
+	end;
+      skip_spaces;
+      end; {of while loop}
+    end;
+
+  if file_count = 2 then
+    begin
+    check_input_file := true;
+    if (parse in [parse_input, parse_output, parse_execute]) or
+       create_flag or read_only_flag then
+      begin
+      screen_msdos_string_message('Only one file name can be specified.');
+      goto 99;
+      end;
+    end;
+  case parse of
+    parse_command,
+    parse_edit :
+      begin
+      if file_count > 0 then
+	begin
+	input_file^.fns := length(file_names[0]);
+	ch_move(file_names[0][1], 1, input_file^.fnm, 1, length(file_names[0]));
+	end
+      else
+	begin
+	if memory <> '' then
+	  begin
+	  assign(envfile, memory);
+	  {$I-}
+	  reset(envfile);
+	  {$I+}
+	  if ioresult = 0 then
+	    begin
+	    readln(envfile, tmp_str);
+	    input_file^.fns := length(tmp_str);
+	    move(tmp_str[1], input_file^.fnm, input_file^.fns);
+	    close(envfile);
+	    check_input_file := true;
+	    end
+	  else
+	    begin
+	    screen_msdos_string_message(concat('Error opening memory file (',
+					       memory, ')'));
+	    goto 99;
+	    end
+	  end
+	else
+	  begin
+	  input_file^.fns := 0;
+	  fillchar(input_file^.fnm, sizeof(input_file^.fnm), ' ');
+	  filesys_parse := parse = parse_command;
+	  goto 99;
+	  end
+	end;
+      if file_count > 1 then
+	begin
+	output_file^.fns := length(file_names[1]);
+	ch_move(file_names[1][1], 1,
+		output_file^.fnm[1], 1, length(file_names[1]));
+	end
+      else
+	begin
+	output_file^.fns := input_file^.fns;
+	output_file^.fnm := input_file^.fnm;
+	end;
+      move(memory[1], output_file^.memory[1], length(memory));
+      output_file^.memory_size := length(memory);
+      output_file^.entab := entab;
+      output_file^.purge := purge;
+      output_file^.versions := versions;
+      if read_only_flag then
+	begin
+	input_file^.create := false;
+	if not filesys_create_open(input_file, nil, true) then
+	  begin
+	  msg_string := 'Error opening (';
+	  with input_file^ do
+	    begin
+	    move(fnm, msg_string[succ(length(msg_string))], fns);
+	    msg_string[0] := chr(length(msg_string) + fns);
+	    end;
+	  screen_msdos_string_message(concat(msg_string, ') as input_file.'));
+	  goto 99;
+	  end;
+	input_file^.valid := true;
+	end
+      else
+	if create_flag then
+	  begin
+	  output_file^.create := true;
+	  if not filesys_create_open(output_file, nil, true) then
+	    begin
+	    goto 99;
+	    end;
+	  output_file^.valid := true;
+	  end
+	else
+	  begin
+	  input_file^.create := false;
+	  output_file^.create := false;
+	  if filesys_create_open(input_file, nil, true) then
+	    input_file^.valid := true
+	  else
+	    if (check_input_file or (parse = parse_edit) or
+		(ioresult <> 0)) then
+	      begin
+	      msg_string := 'Error opening (';
+	      with input_file^ do
+		begin
+		move(fnm, msg_string[succ(length(msg_string))], fns);
+		msg_string[0] := chr(length(msg_string) + fns);
+		end;
+	      screen_msdos_string_message(concat(msg_string,
+						 ') as input_file.'));
+	      goto 99;
+	      end;
+	  if filesys_create_open(output_file, input_file, true) then
+	    output_file^.valid := true
+	  else
+	    goto 99;
+	  end;
+      end;
+    parse_input :
+      begin
+	if file_count = 1 then
+	  begin
+	  input_file^.fns := length(file_names[0]);
+	  move(file_names[0][1], input_file^.fnm[1], length(file_names[0]));
+	  end
+	else
+	  begin
+	  if (memory <> '') then
+	    begin
+	    assign(envfile, memory);
+	    {$I-}
+	    reset(envfile);
+	    {$I+}
+	    if ioresult = 0 then
+	      begin
+	      readln(tmp_str);
+	      input_file^.fns := length(tmp_str);
+	      move(tmp_str[1], input_file^.fnm, input_file^.fns);
+	      close(envfile);
+	      end
+	    else
+	      begin
+	      input_file^.fns := 0;
+	      fillchar(input_file^.fnm, sizeof(input_file^.fnm), ' ');
+	      goto 99;
+	      end;
+	    end;
+	  end;
+	input_file^.create := false;
+	if     (input_file^.fns = 0) or
+	   not filesys_create_open(input_file, nil, true) then
+	  begin
+	  msg_string := 'Error opening (';
+	  with input_file^ do
+	    begin
+	    move(fnm, msg_string[succ(length(msg_string))], fns);
+	    msg_string[0] := chr(length(msg_string) + fns);
+	    end;
+	  screen_msdos_string_message(concat(msg_string, ') as input file'));
+	  goto 99;
+	  end;
+	input_file^.valid := true;
+      end;
+    parse_execute :
+      begin
+      if file_count = 1 then
+	begin
+	input_file^.fns := length(file_names[0]);
+	move(file_names[0][1], input_file^.fnm[1], length(file_names[0]));
+	end
+      else
+	input_file^.fns := 0;
+      input_file^.create := false;
+      if (input_file^.fns = 0) or not filesys_create_open(input_file, nil, true) then
+	goto 99;
+      input_file^.valid := true;
+      end;
+    parse_output :
+      begin
+      if file_count = 1 then
+	begin
+	output_file^.fns := length(file_names[0]);
+	move(file_names[0][1], output_file^.fnm[1], length(file_names[0]));
+	end
+      else
+	begin
+	if input_file <> nil then
+	  begin
+	  output_file^.fns := input_file^.fns;
+	  move(file_names[0][1], output_file^.fnm[1], length(input_file^.fnm));
+	  end
+	else
+	  output_file^.fns := 0;
+	end;
+      if memory <> '' then
+	begin
+	move(memory[1], output_file^.memory[1], length(memory));
+	output_file^.memory_size := length(memory);
+	end;
+      output_file^.entab := entab;
+      output_file^.purge := purge;
+      output_file^.versions := versions;
+      output_file^.create := false;
+      if (output_file^.fns = 0) or
+	  not filesys_create_open(output_file, input_file, true) then
+	goto 99;
+      output_file^.valid := true;
+    end;
+  end; {of case parse}
+  end;
+
+filesys_parse := true;
+
+99:
+end;
+
+begin
+end.

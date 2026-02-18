@@ -1,0 +1,28 @@
+31a32,33
+> {#elseif turbop}
+> {##unit mark;}
+34c36,43
+< {#if vms}
+---
+> {#if turbop}
+> {##interface}
+> {##uses value;}
+> {###<$I mark.h#>}
+> {##}
+> {##implementation}
+> {##uses screen, msdos;}
+> {#elseif vms}
+71,72c80,81
+< 		column  : col_range;
+< 	var     mark    : mark_ptr)
+---
+> 		column : col_range;
+> 	var     mark   : mark_ptr)
+240c249
+<          last_line^.group^.first_line_nr + last_line^.offset_nr then
+---
+> 	 last_line^.group^.first_line_nr + last_line^.offset_nr then
+391c400
+< {#if vms}
+---
+> {#if vms or turbop}

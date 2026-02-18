@@ -1,0 +1,12 @@
+ed/heap/ ox/pwd/ -g"/" ac ti'"{' >ac ti':"' -at"/" =sd/system/ er
+>(>(eqs"procedure"[xs] eqs"function"[xs] al[:<al >dl 2xs])
+  <dl g"{" =dc g"}" =dc al
+  >( eol[xs] eqs"{#" [dl:al] )
+  ti"  external;" al -cl
+ m -g$system$ [=ac at"}" =sd/directive/ r/"external"/$directive$/ @al]
+ fp
+ )
+sa/file/?frame-outputfile?/ sj/file/ -cc sc/file/ -r".h".fwd" er
+-fe// fe$file$
+>( cl ti"[global]" r"external"forward" 2al) []
+q

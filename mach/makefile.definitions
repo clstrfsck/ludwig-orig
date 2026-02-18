@@ -1,0 +1,20 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  Multimax
+# O/S:  Mach
+# ======================================================================
+
+P       = p
+
+RM_     = $#
+
+PCCFLAGS= -Dmultimax -Dns32000 -Dunix -Dmach -DISO1
+
+PFLAGS  = -berkeley -g
+
+CFLAGS  = -DDEBUG -DISO1 -g
+
+LDFLAGS = -n
+LD2FLAGS= getopt.o
+

@@ -1,0 +1,162 @@
+#PARALLEL = 5
+
+ISRC    = const.i sigdef.i type.i var.i version.i
+
+HSRC    = arrow.h   caseditto.h   charcmd.h   code.h   dfa.h   \
+	eqsgetrep.h   exec.h   execimmed.h   file.h   frame.h   help.h   \
+	line.h   mark.h   nextbridge.h   opsys.h   patparse.h   quit.h   \
+	recognize.h   screen.h   span.h   swap.h   text.h   tpar.h   \
+	user.h   validate.h   value.h   window.h   word.h   newword.h  \
+	const.h   type.h   termdesc.h
+
+PSRC    = arrow.p   caseditto.p   charcmd.p   code.p   dfa.p   \
+	eqsgetrep.p   exec.p   execimmed.p   file.p   frame.p   help.p   \
+	line.p   mark.p   nextbridge.p   opsys.p   patparse.p   quit.p   \
+	recognize.p   screen.p   span.p   swap.p   text.p   tpar.p   \
+	user.p   validate.p   value.p   window.p   word.p   newword.p   \
+	ludwig.p
+
+POBJS   = arrow.o   caseditto.o   charcmd.o   code.o   dfa.o   \
+	eqsgetrep.o   exec.o   execimmed.o   file.o   frame.o   help.o   \
+	line.o   mark.o   nextbridge.o   opsys.o   patparse.o   quit.o   \
+	recognize.o   screen.o   span.o   swap.o   text.o   tpar.o   \
+	user.o   validate.o   value.o   window.o   word.o   newword.o \
+	ludwig.o
+
+CSRC    = ch.c filesys.c helpfile.c unix.c vdu.c
+
+COBJS   = ch.o filesys.o            unix.o vdu.o
+
+PC      = pc
+PFLAGS  = -berkeley -g
+
+CC      = cc
+CFLAGS  = -DDEBUG -DISO1 -g
+
+LDFLAGS = -n
+
+all:    ludwig termdesc-parser ludwighlp.idx
+
+ludwig: $(POBJS) $(COBJS)
+	$(PC) $(PFLAGS) $(LDFLAGS) -o ludwig \
+	      $(POBJS) $(COBJS) getopt.o -ltermcap
+
+install:
+	install -c -m 711 -g staff -s ludwig /usr/local/bin
+
+arrow.o: arrow.p   arrow.h const.i type.i var.i \
+	line.h mark.h screen.h text.h vdu.h
+
+caseditto.o: caseditto.p   caseditto.h const.i type.i var.i \
+	ch.h mark.h screen.h text.h vdu.h unix.h
+
+ch.o: ch.c ch.h
+
+charcmd.o: charcmd.p   charcmd.h const.i type.i var.i \
+	ch.h mark.h screen.h text.h vdu.h
+
+code.o: code.p   code.h const.i type.i var.i \
+	ch.h exec.h frame.h line.h mark.h screen.h tpar.h vdu.h unix.h
+
+dfa.o: dfa.p   dfa.h const.i type.i var.i \
+	screen.h
+
+eqsgetrep.o: eqsgetrep.p   eqsgetrep.h const.i type.i var.i \
+	ch.h charcmd.h mark.h screen.h text.h patparse.h dfa.h recognize.h
+
+exec.o: exec.p   exec.h const.i type.i var.i \
+	arrow.h caseditto.h ch.h charcmd.h code.h eqsgetrep.h file.h \
+	frame.h help.h line.h mark.h nextbridge.h opsys.h screen.h span.h \
+	swap.h tpar.h text.h user.h validate.h vdu.h word.h newword.h unix.h
+
+execimmed.o: execimmed.p   execimmed.h const.i type.i var.i \
+	code.h exec.h file.h line.h mark.h screen.h text.h vdu.h unix.h
+
+file.o: file.p   file.h const.i type.i var.i \
+	ch.h exec.h filesys.h line.h mark.h screen.h tpar.h unix.h vdu.h
+
+filesys.o: filesys.c const.h type.h
+
+frame.o: frame.p   frame.h const.i type.i var.i \
+	line.h span.h mark.h ch.h screen.h vdu.h tpar.h dfa.h unix.h
+
+help.o: help.p   help.h const.i type.i var.i \
+	ch.h helpfile.h screen.h
+
+helpfile.o: helpfile.c const.h type.h
+
+line.o: line.p   line.h const.i type.i var.i \
+	ch.h screen.h unix.h
+
+ludwig.o: ludwig.p   const.i type.i var.i \
+	ch.h exec.h execimmed.h file.h frame.h quit.h screen.h vdu.h unix.h
+	$(PC) $(PFLAGS) -object ludwig.p
+
+mark.o: mark.p   mark.h const.i type.i var.i \
+	screen.h unix.h
+
+nextbridge.o: nextbridge.p   nextbridge.h const.i type.i var.i \
+	mark.h
+
+opsys.o: opsys.p   opsys.h const.i type.i var.i \
+	ch.h filesys.h line.h screen.h
+
+patparse.o: patparse.p   patparse.h const.i type.i var.i \
+	ch.h screen.h tpar.h
+
+quit.o: quit.p   quit.h const.i type.i var.i \
+	file.h screen.h tpar.h vdu.h unix.h
+
+recognize.o: recognize.p   recognize.h const.i type.i var.i
+
+screen.o: screen.p   screen.h const.i type.i var.i \
+	ch.h line.h vdu.h unix.h
+
+span.o: span.p   span.h const.i type.i var.i \
+	ch.h code.h file.h line.h mark.h screen.h unix.h
+
+swap.o: swap.p   span.h const.i type.i var.i \
+	mark.h text.h
+
+text.o: text.p   text.h const.i type.i var.i \
+	ch.h line.h mark.h screen.h vdu.h unix.h
+
+tpar.o: tpar.p   tpar.h const.i type.i var.i \
+	ch.h screen.h span.h swap.h unix.h
+
+user.o: user.p   user.h const.i type.i var.i \
+	code.h mark.h screen.h span.h text.h tpar.h unix.h vdu.h
+
+validate.o: validate.p   validate.h const.i type.i var.i \
+	screen.h
+
+value.o: value.h const.i type.i var.i version.i
+
+vdu.o:  vdu.c const.h type.h termdesc.h
+
+window.o: window.p   window.h const.i type.i var.i \
+	frame.h line.h mark.h screen.h vdu.h
+
+word.o: word.p   word.h const.i type.i var.i \
+	line.h mark.h text.h
+
+newword.o: newword.p   newword.h const.i type.i var.i \
+	line.h mark.h text.h
+
+termdesc-parser: termdesc-parser.c const.h type.h termdesc.h
+	$(CC) $(CFLAGS) -o termdesc-parser termdesc-parser.c
+
+ludwighlpbld: ludwighlpbld.c
+	$(CC) $(CFLAGS) -o ludwighlpbld ludwighlpbld.c
+
+ludwighlp.idx:  ludwighlpbld ludwighlp.t
+	ludwighlpbld ludwighlp.t ludwighlp.idx
+
+clean:
+	rm -f $(POBJS)
+	rm -f ludwig
+	rm -f termdesc-parser
+	rm -f ludwighlpbld
+#       rm -f $(PSRC)
+#       rm -f $(ISRC)
+#       rm -f $(HSRC)

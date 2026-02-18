@@ -1,0 +1,22 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  Multimax
+# O/S:  Umax
+# ======================================================================
+
+P       = pas
+
+RM_     = $#
+
+PCCFLAGS= -Dns32000 -Dunix -DISO1
+PCCFLAGS= -Dns32000 -Dunix -DISO1 -Ddebug
+
+PFLAGS  = -berkeley
+PFLAGS  = -berkeley -g
+
+CFLAGS  = -DDEBUG -DISO1
+CFLAGS  = -DDEBUG -DISO1 -g
+
+LDFLAGS = -n
+

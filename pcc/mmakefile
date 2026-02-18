@@ -1,0 +1,14 @@
+no-target:
+	@echo "Please supply a target."
+
+pcc: pcc.pas
+	pc -berkeley -o pcc pcc.pas
+
+install-pcc: pcc
+	install -m 711 -s pcc ${HOME}
+
+rm_: rm_.pas
+	pc -berkeley -o rm_ rm_.pas
+
+install-rm_: rm_
+	install -m 711 -s rm_ ${HOME}

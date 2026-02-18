@@ -1,0 +1,19 @@
+# ======================================================================
+#
+#                  ====================================
+#            ***** DO NOT MODIFY THIS MAKEFILE DIRECTLY *****
+#                  ====================================
+#
+# This makefile consists of the concatenation of
+#       ~/current/makefile.warning
+#       ~/current/?/makefile.definitions
+#       ~/current/makefile.body
+#
+# To modify the makefile, edit the appropriate file(s) as listed above,
+# and execute 'make makefile'.
+#
+# To contruct a makefile for a new system, copy 'makfile.definitions'
+# and 'makefile' from another system, edit 'makefile.definitions', and
+# execute 'make makefile'.
+#
+# ======================================================================

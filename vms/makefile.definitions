@@ -1,0 +1,22 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  VAX
+# O/S:  VMS
+# ======================================================================
+
+P       = pas
+
+RM_     = $#
+
+PCCFLAGS= -Dvax -Dvms
+PCCFLAGS= -Dvax -Dvms -Ddebug
+
+PFLAGS  = /check=(all,nopointers)/nooptimize/list/show=(noinclude)
+PFLAGS  = /check=(all,nopointers)/nooptimize/list/show=(noinclude)/debug
+
+CFLAGS  =
+CFLAGS  = /debug
+
+LDFLAGS =
+

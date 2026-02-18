@@ -1,0 +1,83 @@
+! SUN Generic Keyboard Definition
+! -------------------------
+!  This is a generic keyboard definition for any SUN terminal.
+!  SUN-1 keyboards are Vt-100 style, and do not have the function keys
+!  of the series 2 and 3 machines.
+!  This defines all the keys on all the machines, therefore depending
+!  upon the model and configuration there will be keys defined that do not
+!  exist. Users should where possible try to determine the model and
+!  configuration of their keyboard and use the correct termdesc file.
+!  This file defines function keys right-8 , 10, 12, 14 although a normal
+!  configuration does not send them (setkeys noarrows).
+!  However this file cannot support -- setkeys lefty --. A left handed
+!  user who wishes to make use of this feature must explicitly use the
+!  appropriate file.
+
+terminal = sun     !  This is the default value for any sun placed in $TERM
+                   !  by tset. The value is determined by a system file
+                   !  and will break software using termcaps if changed
+
+ansi-terminal = true
+
+! Control Keys
+key-tab = ht
+key-return = cr
+key-delete = del
+key-backspace = bs
+key-line-feed = lf
+
+! Strange ones
+key-break = csi+'233z'
+
+! Arrow Keys
+key-up-arrow    = csi+'A'
+key-down-arrow  = csi+'B'
+key-left-arrow  = csi+'D'
+key-right-arrow = csi+'C'
+
+
+! Function Keys
+key-pf1,key-function-1  = csi+'224z'
+key-pf2,key-function-2  = csi+'225z'
+key-pf3,key-function-3  = csi+'226z'
+key-pf4,key-function-4  = csi+'227z'
+!
+! SUN-1s do not have any function keys. The PF keys transmit the first four
+! function key sequences. Except that on both SUN-1s ans SUN-2s function
+! key 1 is used as a caps lock key for some shelltools, and therefore will
+! not send.
+!
+key-function-5  = csi+'228z'
+key-function-6  = csi+'229z'
+key-function-7  = csi+'230z'
+key-function-8  = csi+'231z'
+key-function-9  = csi+'232z'
+
+key-left-1      = csi+'192z'  ! A normally configured SUN kernel will never
+                              ! send this key.
+key-left-2      = csi+'193z'  ! Normal configuration of a SUN uses most of
+key-left-3      = csi+'194z'  ! the left function keys for control of SunView.
+key-left-4      = csi+'195z'  ! -- setkeys nosunview -- will free these
+key-left-5      = csi+'196z'  ! keys up to send these sequences.
+key-left-6      = csi+'197z'
+key-left-7      = csi+'198z'
+key-left-8      = csi+'199z'
+key-left-9      = csi+'200z'
+key-left-10     = csi+'201z'
+
+key-right-1     = csi+'208z'   ! keys right 8,10,12,14 are normally the
+key-right-2     = csi+'209z'   ! arrow keys, and will send the sequence
+key-right-3     = csi+'210z'   ! for the arrows. -- setkeys noarrows --
+key-right-4     = csi+'211z'   ! disables the arrow function and makes them
+key-right-5     = csi+'212z'   ! send the listed sequence here.
+key-right-6     = csi+'213z'
+key-right-7     = csi+'214z'
+key-right-8     = csi+'215z'   ! normally up arrow
+key-right-9     = csi+'216z'
+key-right-10    = csi+'217z'   !         left arrow
+key-right-11    = csi+'218z'
+key-right-12    = csi+'219z'   !         right arrow
+key-right-13    = csi+'220z'
+key-right-14    = csi+'221z'   !         down arrow
+key-right-15    = csi+'222z'
+

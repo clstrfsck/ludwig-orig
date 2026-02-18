@@ -1,0 +1,19 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  VAX
+# O/S:  Ultrix
+# ======================================================================
+
+P       = p
+
+RM_     = ~/rm_
+
+PCCFLAGS= -Dvax -Dunix -Dultrix
+
+PFLAGS  = -g -w
+
+CFLAGS  = -DDEBUG -g
+
+LDFLAGS = -n
+

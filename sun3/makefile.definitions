@@ -1,0 +1,19 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  Sun4
+# O/S:  SunOs
+# ======================================================================
+
+P       = p
+
+RM_     = $#
+
+PCCFLAGS= -Dsun -Dsparc -Dunix -DISO1
+
+PFLAGS  = -g
+
+CFLAGS  = -DDEBUG -g
+
+LDFLAGS = -n
+

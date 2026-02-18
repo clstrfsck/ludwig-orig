@@ -1,0 +1,340 @@
+{**********************************************************************}
+{                                                                      }
+{            L      U   U   DDDD   W      W  IIIII   GGGG              }
+{            L      U   U   D   D   W    W     I    G                  }
+{            L      U   U   D   D   W ww W     I    G   GG             }
+{            L      U   U   D   D    W  W      I    G    G             }
+{            LLLLL   UUU    DDDD     W  W    IIIII   GGGG              }
+{                                                                      }
+{**********************************************************************}
+{                                                                      }
+{   Copyright (C) 1981, 1987                                           }
+{   Department of Computer Science, University of Adelaide, Australia  }
+{   All rights reserved.                                               }
+{   Reproduction of the work or any substantial part thereof in any    }
+{   material form whatsoever is prohibited.                            }
+{                                                                      }
+{**********************************************************************}
+{++
+! Name:         HELPFILE
+!
+! Description:   Load and support indexed help file under MS-DOS.
+!
+! Revision History:
+! 4-001 Jeff Blows                                              23-Apr-88
+!       Implemented on MS-DOS.
+!
+!--}
+
+unit helpfile;
+
+interface
+uses dos, value;
+
+{$I helpfile.h}
+
+implementation
+
+const
+
+old_helpfile_name = 'ludwighl.idx'; {indexed helpfile -old version}
+new_helpfile_name = 'ludwigne.idx'; {  "        "     -new version}
+max_indexsize     = 150;            {maximum number of indexed sections in helpfile}
+key_size          = 4;
+index_buffer_size = 19;             {length of buffer that the start and end indices for
+			 a section are read into}
+start_ind_size    = 9;              {length of buffer to hold start index in}
+end_ind_size      = 8;              {length of end index buffer}
+line_size         = 78;             {length of a line in the indexed helpfile}
+STSRNF            = 98994;          {record not found status return}
+help_buffer_size  = 2048;
+
+type
+
+indexrange        = 0..max_indexsize;
+help_buffer_range = 1..help_buffer_size;
+key_type          = record
+		      key      : key_str;
+		      position : array[0..1] of longint;
+		    end;
+
+var
+
+keys            : array [indexrange] of key_type;
+current_key     : key_type;
+current_topic   : key_str;
+index_size      : integer;
+contents_size   : integer;
+help_file_open  : boolean;
+help_file       : file;
+help_file_name  : string;
+help_buffer     : array[help_buffer_range] of char;
+help_buffer_ptr : help_buffer_range;    {pointer to current position in help_buffer}
+curr_filepos    : longint;              {current position in the file}
+
+
+{}procedure get_line(var buf : help_record; var reclen : integer);
+
+  {Get the next line from help_buffer. }
+  {Assumes - lines are never more than 78 chars long, }
+  {        - lines are ended by a carriage return and linefeed pair, }
+  {        - help_buffer has been filled by helpfile_fead. }
+  var
+    end_of_line : boolean;
+    num_read    : word;
+    i           : integer;
+
+  begin
+  for i:= 1 to 80 do     {initialize buffer to blank}
+    buf.txt[i] := ' ';
+  end_of_line := false;
+  reclen := 0;
+  repeat
+    if (help_buffer[help_buffer_ptr] <> chr(cr)) then
+      begin
+      reclen := reclen + 1;
+      buf.txt[reclen] := help_buffer[help_buffer_ptr];
+      help_buffer_ptr := help_buffer_ptr + 1;
+
+      if (help_buffer_ptr > help_buffer_size) then
+	begin
+	blockread(help_file,help_buffer,sizeof(help_buffer),num_read);
+	help_buffer_ptr := 1;
+	end;
+      end
+    else
+      begin
+      end_of_line := true;
+      help_buffer_ptr := help_buffer_ptr + 2;
+      end;
+  until (reclen = line_size) or (end_of_line);
+end; {get_line}
+
+
+function helpfile_open {(
+		old_version : boolean)
+	:boolean};
+
+  {If helpfile is already open then nothing is done. }
+  {Else the appropriate (old or new) version of the helpfile is opened }
+  {and the index read into a table and returns true. }
+  {If it is not found the function exits and returns false. }
+  var
+    i,j            : integer;
+    num_read,code  : word;
+    ch             : char;
+    line_buffer    : string[line_size];
+    index_buffer   : string[index_buffer_size];
+    start_ind      : string[start_ind_size];
+    end_ind        : string[end_ind_size];
+    contents_bytes : longint;
+    linelength     : longint;
+    dummy          : help_record;
+
+    function read_int : integer;
+
+      {Read character string and convert it to an integer.}
+     var
+       i,answer : integer;
+       buffer   : string;
+
+    begin
+    i:=1;
+    repeat
+      blockread(help_file,buffer[i],sizeof(buffer[i]),num_read);
+    until buffer[i] in ['0'..'9','-'];
+    repeat
+      inc(i);
+      blockread(help_file,buffer[i],sizeof(buffer[i]),num_read);
+    until not (buffer[i] in ['0'..'9']);
+    buffer[0] := chr(i-1);
+    val(buffer,answer,code);
+    if (code = 0) then
+      read_int := answer
+    else
+      read_int := 0;
+    end; {read_int}
+
+  begin {helpfile_open}
+  if not help_file_open then
+    begin
+    if old_version then
+      help_file_name := old_helpfile_name
+    else
+      help_file_name := new_helpfile_name;
+    help_file_name := concat(program_directory, help_file_name);
+
+    {find out if file exists in program startup directory}
+    {$I-}
+    assign(help_file,help_file_name);
+    reset(help_file,1);
+    if (IOResult <> 0) then
+      help_file_open := false    {error - can't find helpfile}
+    else
+      begin   {help file found}
+      index_size := read_int;
+      contents_size := read_int;
+      repeat
+	blockread(help_file,ch,sizeof(ch),num_read);
+      until (ch = chr(lf));
+
+      {The index lines are of a known size, so read in one at a time and }
+      {split them into the 4 char key field and two long integers.}
+      {Integers must be converted from string form.}
+
+      for j := 1 to index_size do
+	begin
+	blockread(help_file,keys[j].key[1],sizeof(keys[j].key),num_read);
+	blockread(help_file,index_buffer[1],sizeof(index_buffer)-1,num_read);
+	index_buffer[0] := chr(sizeof(index_buffer)-1);
+
+	start_ind := copy(index_buffer,1,start_ind_size);
+	end_ind := copy(index_buffer,start_ind_size+1,end_ind_size);
+	val(start_ind,keys[j].position[0],code);
+	val(end_ind,keys[j].position[1],code);
+	end;
+
+      {Key '0' is special, it's the contents page. It does not appear in the }
+      {index as it must be created on the fly while creating the index file. }
+      {Hence it's entry appears after the index but before the bulk of the }
+      {entries.}
+
+      inc(index_size);
+      keys[index_size].position[0] := filepos(help_file);
+      keys[index_size].key := '   0';
+
+      blockread(help_file,help_buffer,sizeof(help_buffer),num_read);
+      help_buffer_ptr := 1;
+      contents_bytes := 0;
+      for i:=1 to contents_size do
+	begin
+	get_line(dummy,linelength);
+	contents_bytes := contents_bytes + linelength + 2;
+	end;
+
+      keys[index_size].position[1] := keys[index_size].position[0]
+					+ contents_bytes;
+
+      for i:=1 to index_size - 1 do
+	  begin
+	  keys[i].position[0] := keys[i].position[0] + keys[index_size].position[1];
+	  keys[i].position[1] := keys[i].position[1] + keys[index_size].position[1];
+	  end;
+      help_file_open := true;
+      end;
+    {$I+}
+    end;
+    helpfile_open := help_file_open;  {return status of help file}
+  end; {helpfile_open}
+
+function helpfile_read {(
+	var     key    : key_str;
+		keylen : integer;
+	var     buf    : help_record;
+		buflen : integer;
+	var     reclen : integer)
+		: integer};
+
+  {Locate and read in the first line of help}
+  var
+    i,j : integer;
+    found : boolean;
+    num_read : word;
+
+  function equalkey(k1,k2:key_str) : boolean;
+
+    {return true if the two keys are the same}
+    var
+      i  : integer;
+      eq : boolean;
+    begin
+    eq:=true;
+    i:=1;
+    while eq and (i<=key_size) do
+      begin
+      eq := (k1[i] = k2[i]);
+      inc(i);
+      end;
+    equalkey := eq;
+    end; {equalkey}
+
+  begin
+  for i:=1 to key_size do
+     current_topic[i] := key[i];
+  i := key_size;
+  while (key[i] = ' ') and (i > 1) do
+    dec(i);
+  j := key_size;
+  while i >= 1 do
+    begin
+    current_key.key[j] := key[i];
+    dec(i);
+    dec(j);
+    end;
+  while j >= 1 do
+    begin
+    current_key.key[j] := ' ';
+    dec(j);
+    end;
+
+  {look for correct entry in the table only a simple linear lookup at present!}
+  i := 1;
+  found := false;
+  while (i <= index_size) and (not found) do
+    begin
+    if equalkey(keys[i].key,current_key.key) then
+      begin
+      current_key.position[0] := keys[i].position[0];
+      current_key.position[1] := keys[i].position[1];
+      found := true;
+      end;
+    inc(i);
+    end;
+  {if not found, return the mysterious status STSRNF}
+  if not found then
+    helpfile_read := STSRNF
+  else
+    begin
+    seek(help_file,current_key.position[0]);
+    blockread(help_file,help_buffer,sizeof(help_buffer),num_read);
+    help_buffer_ptr := 1;
+
+    get_line(buf,reclen);
+    curr_filepos := current_key.position[0] + reclen + 2;
+
+    for i:= 1 to key_size do
+      buf.key[i] := current_topic[i];
+    helpfile_read := 1;
+    end;
+  end; {helpfile_read}
+
+function helpfile_next {(
+	var     buf    : help_record;
+		buflen : integer;
+	var     reclen : integer)
+	: integer};
+
+  {The next help line is read. Returns 1 if it could read an entry. }
+  {Returns 0 if we are at the end of the entry. }
+  var
+     num_read : word;
+     i        : integer;
+  begin
+  if (curr_filepos >= current_key.position[1]) then
+    helpfile_next := 0
+  else
+    begin
+    get_line(buf,reclen);
+
+    curr_filepos := curr_filepos + reclen + 2;
+
+    for i:= 1 to key_size do
+      buf.key[i] := current_topic[i];
+    helpfile_next := 1;
+    end;
+  end; {helpfile_next}
+
+begin
+{helpfile is not opened until the first help request.}
+help_file_open := false;
+end.

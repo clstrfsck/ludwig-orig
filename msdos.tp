@@ -1,0 +1,139 @@
+{**********************************************************************}
+{                                                                      }
+{            L      U   U   DDDD   W      W  IIIII   GGGG              }
+{            L      U   U   D   D   W    W     I    G                  }
+{            L      U   U   D   D   W ww W     I    G   GG             }
+{            L      U   U   D   D    W  W      I    G    G             }
+{            LLLLL   UUU    DDDD     W  W    IIIII   GGGG              }
+{                                                                      }
+{**********************************************************************}
+{                                                                      }
+{   Copyright (C) 1981, 1987                                           }
+{   Department of Computer Science, University of Adelaide, Australia  }
+{   All rights reserved.                                               }
+{   Reproduction of the work or any substantial part thereof in any    }
+{   material form whatsoever is prohibited.                            }
+{                                                                      }
+{**********************************************************************}
+
+{++
+! Name:        MSDOS
+!
+! Description:  Provide low level interface outines to MS-DOS system.
+!
+! Revision History:
+! 4-001 Jeff Blows                                              23-Apr-88
+!       Implemented on MS-DOS.
+!
+!--}
+
+unit msdos;
+
+interface
+uses value;
+{$I msdos.h}
+
+implementation
+
+function malloc {(
+		size : integer)
+	: str_ptr};
+
+begin
+end;
+
+procedure free {(
+		ptr : str_ptr)};
+
+begin
+end;
+
+procedure msdos_exit {(
+		status : integer)};
+
+begin
+end;
+
+function cvt_int_str {(
+		num   : integer;
+	var     strng : str_object;
+		width : scr_col_range)
+	: boolean};
+
+var
+tmp_str : string;
+begin
+fillchar(strng[1], sizeof(strng), ' ');
+str(num:width, tmp_str);
+move(tmp_str[1], strng[1], length(tmp_str));
+strng[succ(length(tmp_str))] := chr(0); {now it looks like a unix string}
+cvt_int_str := true;
+end;
+
+function cvt_str_int {(
+	var     num   : integer;
+	var     strng : str_object)
+	: boolean};
+
+var
+tmp_str : string;
+code : integer;
+begin
+move(strng[1] , tmp_str[1], 3);
+tmp_str[0] := chr(3);
+val(tmp_str, num, word(code));
+cvt_str_int := code = 0;
+end;
+
+function get_environment {(
+	var     environ : name_str;
+	var     reslen  : strlen_range;
+	var     result  : str_object)
+	: boolean};
+
+begin
+end;
+
+procedure init_signals{};
+
+begin
+end;
+
+procedure exit_handler {(
+		sig : integer)};
+
+begin
+end;
+
+function msdos_suspend {
+	: boolean};
+
+begin
+end;
+
+function msdos_shell {
+	: boolean};
+
+begin
+end;
+
+function msdos_bcmp {(
+		var     str1, str2      ;
+			len             : integer)
+		: boolean};
+
+var
+i       : integer;
+found   : boolean;
+begin
+found := true;
+i := 1;
+while (i <= len) and found do
+  begin
+  found := str_object(str1)[i] = str_object(str2)[i];
+  inc(i);
+  end;
+msdos_bcmp := found;
+end;
+
+end.

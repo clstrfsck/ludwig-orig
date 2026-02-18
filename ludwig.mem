@@ -1,0 +1,259 @@
+001 Ludwig V4.0 release                                       7-Apr-1987
+
+002 Kelvin B. Nicolle                                        15-Apr-1987
+    Single commands executed from mapped control keys did not use the
+    stored trailing parameter but always prompted.
+    UoA SPR Reference:  037
+    Module(s) Changed:  CODE.PAS 4-002
+
+003 Jeff Blows                                               30-Apr-1987
+    The Sun version of Ludwig now initializes the Ludwig window size to
+    match the size of the Sun window.
+    Module(s) Changed:  VDU.C 4-002
+
+004 Kelvin B. Nicolle                                         5-May-1987
+    Defining a key with a multi-line replace command and then typing
+    \key produced the message "Tpar should not be nil.".
+    UoA SPR Reference:  038
+    Module(s) Changed:  TPAR.PAS 4-002
+
+005 Kelvin B. Nicolle                                         5-May-1987
+    Under VMS, Ludwig was losing a blank line at the top an input file
+    with carriage_return or fortran record attribute.
+    UoA SPR Reference:  040
+    Module(s) Changed:  FILESYS.PAS 4-002, CONST.INC 4-002
+
+006 Jeff Blows                                                5-May-1987
+    On Sun systems: the system V hash routine emulation code, used by
+    the H command, produced a segmentation violation.
+    Module(s) Changed:  UNIX.C 4-002
+
+007 Kelvin B. Nicolle                                         5-May-1987
+    After a multi-line replace, an R command with no parameters produced
+    incorrect results, and sometimes "error during DISPOSE".
+    UoA SPR Reference:  041
+    Module(s) Changed:  EXEC.PAS 4-002
+
+008 Kelvin B. Nicolle                                         6-May-1987
+    Part of help topic 4 was missing due to a formatting error in the
+    help file source.  The format of the help file source was modified.
+    The indent of the help display was changed from 3 to 2.
+    UoA SPR Reference:  039
+    Module(s) Changed:  LUDWIGHLP.TXT 4-002, LUDWIGHLP.PAS 4-002,
+                        LUDWIGHLP.C 4-002, HELP.PAS 4-002
+
+009 Kelvin B. Nicolle                                         6-May-1987
+    In the parameters display, increase the width of the Ludwig version
+    from 6 to 8 characters.
+    Make the version number a variable initialized by value instead of a
+    constant.
+    Module(s) Changed:  FRAME.PAS 4-002, CONST.INC 4-003, VAR.INC 4-002,
+                        VALUE.INC,.P 4-002
+
+010 Jeff Blows                                                7-May-1987
+    Added the function timed_read for reading terminal replies on the
+    sun version. Modified tt_setupterm to use timed_read.
+    Module(s) Changed:  UNIX.C 4-003, VDU.C 4-003
+
+    ---- export kit ----------------------------------------------------
+
+011 Jeff Blows                                               12-May-1987
+    Corrected the code to read the Sun window size.
+    Module(s) Changed:  UNIX.C 4-004, VDU.C 4-004
+
+012 Jeff Blows                                               15-May-1987
+    The pc compiler on the Unity fails with a set expression of the form
+    [chr(0)..chr(ord_maxchar)].
+    Module(s) Changed:  NEXTBRIDGE.PAS 4-002
+
+013 Jeff Blows                                               15-May-1987
+    sys/types.h is included by sys/param.h and the is68k C compiler
+    objects to having the definitions twice.
+    Module(s) Changed:  FILESYS.C 4-002
+
+014 Kelvin B. Nicolle                                        22-May-1987
+    Negatable qualifiers, such as /INITIALIZE, were listed in the form
+    "/[NO]INITIALIZE" requiring the user to enter the "[NO]" prefix to
+    select the help sub-topic.
+    The list of supported terminals was augmented.
+    Module(s) Changed:  LUDWIG.HLP 4-002
+
+015 Kelvin B. Nicolle                                        22-May-1987
+    0YA and -nYa produced an access violation on an empty line and
+    incorrect results when Dot was past end-of-line on a non-empty line.
+    UoA SPR Reference:  042
+    Module(s) Changed:  WORD.PAS 4-002
+
+016 Kelvin B. Nicolle                                        22-May-1987
+    Move the definition of ludwig_version into a separate include file:
+    "version.inc/.i".
+    Module(s) Changed:  VALUE.INC,.P 4-003
+
+017 Kelvin B. Nicolle                                        26-May-1987
+    The help section for US was one line too long.
+    Module(s) Changed:  LUDWIGHLP.TXT 4-003
+
+018 Mark R. Prior                                            22-Jun-1987
+    Version 4.1 developments incorporated into main source code:
+    . Replace the global variables tt_width and tt_height by
+      terminal_info.
+    . Change parameter list of vdu_init.
+    Module(s) Changed:  VAR.INC 4-003, BUG.PAS 4-002
+
+019 Mark R. Prior                                             7-Nov-1987
+    Rearrange code to do all test before setting the mode and
+      previous_id fields of the file data structure.
+    Add code to check for write access to a file.
+    Rename the file data structure field from buffer to buf.
+    Add a nul to the end of the read buffer.
+    Add "check_input = 1" to the parse of command line and FE using
+      the memory file.
+    Module(s) Changed:  FILESYS.C 4-004
+
+020 Mark R. Prior                                            10-Nov-1987
+    Correct the use of umask when creating new files.
+    Change the mode of temporary files from 644 to 600.
+    Module(s) Changed:  FILESYS.C 4-005
+
+021 Mark R. Prior                                            11-Nov-1987
+    Make the declaration of errno global.
+    Module(s) Changed:  FILESYS.C 4-006
+
+022 Mark R. Prior                                            11-Nov-1987
+    Change the code for SA and KM to fail if their first parameter
+      is empty, regardless of the length of the second parameter.
+    Module(s) Changed:  EXEC.PAS 4-003
+
+023 Mark R. Prior                                            24-Nov-1987
+    Set the memory file name to NUL when the -M option is used.
+    Module(s) Changed:  FILESYS.C 4-007
+
+024 Mark R. Prior                                            12-Dec-1987
+    If the last line of a file has no terminator, the line was being
+    lost.
+    Module(s) Changed:  FILESYS.C 4-008
+
+025 Mark R. Prior                                            12-Dec-1987
+    Add max_word_sets.
+    Module(s) Changed:  CONST.INC 4-004
+
+026 Mark R. Prior                                            19-Dec-1987
+    Add the NEWWORD module with modified AW and DW commands, and new
+      AP and DP commands.
+    Module(s) Changed:  EXEC.PAS 4-004
+
+027 Mark R. Prior                                            19-Dec-1987
+    Modify the AC command semantics for the new command set.
+    Module(s) Changed:  EXEC.PAS 4-005
+
+028 Mark R. Prior                                            19-Dec-1987
+    Add the AP and DP commands to the command lookup table.
+    Module(s) changed:  LUDWIG.PAS 4-002
+
+029 Mark R. Prior                                            26-Jan-1988
+    Add code to eqsretrep_rep to ensure that the temporary copies
+    of marks Dot and Equals are disposed of.
+    Module(s) Changed:  EQSGETREP.PAS 4-002
+
+030 Mark R. Prior                                            19-Feb-1988
+    Add max_word_sets_m1.
+    Module(s) Changed:  CONST.INC 4-005
+
+031 Mark R. Prior                                            20-Feb-1988
+    Strings passed to ch routines are now passed using conformant
+      arrays, or as type str_object.
+            string[offset],length -> string,offset,length
+    In all calls of ch_length, ch_upcase_str, ch_locase_str, and
+      ch_reverse_str, the offset was 1 and is now omitted.
+    Where conformant arrays are not implemented and the array is not
+      of type str_object, separate routines are provided for each
+      type.
+    Module(s) changed:  CASEDITTO.PAS 4-002, CHARCMD.PAS 4-002,
+                        CODE.PAS 4-003, FILESYS.C 4-009,
+                        EQSGETREP.PAS 4-002, EXEC.PAS 4-006,
+                        LUDWIG.PAS 4-003
+
+032 Kelvin B. Nicolle                                        26-Aug-1988
+    The EXEC module is too big for the Multimax pc compiler.  Move
+    the code for the quit command to the QUIT module.
+    Module(s) Changed:  EXEC.PAS 4-007, QUIT.PAS 4-002
+
+033 Kelvin B. Nicolle                                         2-Sep-1988
+    Add flags to the C routine headers so that the include files
+    generated for the Multimax Pascal compiler will contain the
+    "nonpascal" directive. Also ensure that all routine headers are
+    terminated with a blank line.
+    Module(s) Changed:  FILESYS.C 4-010
+
+034 Kelvin B. Nicolle                                         2-Sep-1988
+    Only the Ultrix Pascal compiler does not support underscores in
+    identifiers:  Put the underscores back in the Pascal sources and
+    make the macro definitions of the external names conditional in
+    the C sources.
+    Module(s) Changed:  EXEC.PAS 4-008, FILESYS.C 4-011
+
+035 Kelvin B. Nicolle                                         9-Sep-1988
+    Work around a code generation bug in the Multimax pc compiler.
+    (See UMAX bug report 18.)
+    Module(s) changed: CHARCMD.PAS 4-003
+
+036 Kelvin B. Nicolle                                         9-Sep-1988
+    Work around a code generation bug in the Multimax pc compiler.
+    (See UMAX bug report 16.)
+    Module(s) changed: CODE.PAS 4-004
+
+037 Kelvin B. Nicolle                                         9-Sep-1988
+    Move the ascii constants from const.inc to filesys.pas.
+    Module(s) Changed:  CONST.INC 4-006, FILESYS.PAS 4-005
+
+038 Kelvin B. Nicolle                                         9-Sep-1988
+    Work around a bug in Ultrix pc which does not allow double
+    quotes in string when compiled with the debug option.
+    Module(s) Changed:  CONST.INC 4-007
+
+039 Kelvin B. Nicolle                                        30-Sep-1988
+    The EXEC module is too big for the Multimax pc compiler.  Move
+    the code for the window commands to a new module.
+    Module(s) Changed:  EXEC.PAS 4-009, WINDOW.PAS 4-001
+
+040 Kelvin B. Nicolle                                        28-Oct-1988
+    Different operating systems have different implementations of
+    getopt.  Rationalize the construction of argv to be compatible.
+    Module(s) Changed:  FILESYS.C 4-012
+
+041 Kelvin B. Nicolle                                         4-Nov-1988
+    Change the "multimax" flags in the routine headers to "umax" and
+    "mach".
+    Module(s) Changed:  FILESYS.C 4-013
+
+042 Kelvin B. Nicolle                                        16-Dec-1988
+    In fileys_parse copy the usage strings before passing them to
+    screen_unix_message which blank pads the message.
+    Module(s) Changed:  FILESYS.C 4-014
+
+043 Kelvin B. Nicolle                                         1-Mar-1989
+    Restore the old semantics of the AC command.
+    Module(s) Changed:  EXEC.PAS 4-010
+
+044 John Warburton                                            6-Apr-1989
+    Corrected screen redraw after a suspend.
+    Module(s) Changed: UNIX.C 4-005, VDU.C 4-003
+
+045 Jeff Blows                                               19-Jun-1989
+    Rearranged calls relating to a suspend under unix.
+    Module(s) Changed: UNIX.C 4-006, VDU.C 4-004
+
+046 Jeff Blows                                               20-Jun-1989
+    Determine the size of a window using ioctl calls.
+    Module(s) Changed: VDU.C 4-005
+
+047 Jeff Blows                                               23-Jun-1989
+   Support te and ti termcap fields. This is needed so that cmdtool on a
+   sun workstation works.
+   Module(s) Changed: VDU.C 4-006
+
+048 Jeff Blows                                                3-Jul-1989
+   All pointers in tpar_objects in a frame_object were not being
+   initialized. This causes problems when a null string is returned in a
+   get or return.
+   Module(s) changed: FRAME.PAS 4-003

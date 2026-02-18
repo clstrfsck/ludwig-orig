@@ -1,0 +1,910 @@
+{**********************************************************************}
+{                                                                      }
+{            L      U   U   DDDD   W      W  IIIII   GGGG              }
+{            L      U   U   D   D   W    W     I    G                  }
+{            L      U   U   D   D   W ww W     I    G   GG             }
+{            L      U   U   D   D    W  W      I    G    G             }
+{            LLLLL   UUU    DDDD     W  W    IIIII   GGGG              }
+{                                                                      }
+{**********************************************************************}
+{                                                                      }
+{   Copyright (C) 1981, 1987                                           }
+{   Department of Computer Science, University of Adelaide, Australia  }
+{   All rights reserved.                                               }
+{   Reproduction by any means strictly prohibited.                     }
+{                                                                      }
+{**********************************************************************}
+
+{++
+! Name:         VDUIBM
+!
+! Description:  This module does all the complex control of the VDU type
+!               screens that Ludwig demands.
+!               This is the IBM version.
+!
+! Revision History:
+! 4-001 Jeff Blows                                              24-Apr-88
+!       This version started.
+!--}
+
+{#if turbop}
+
+unit vduibm;
+
+interface
+uses crt, value;
+{$I vduibm.h}
+
+implementation
+
+const
+bs = 8;
+lf = 10;
+tt_termheight = 25;
+tt_termwidth = 80;
+succ_tt_termwidth = 81;
+num_ibm_function_keys = 140;
+
+out_m_cleareol = 1;
+out_m_anycurs  = 2;
+
+type
+row_type        = packed array[1..tt_termwidth] of char;
+row_ptr_element = ^row_type;
+row_ptr_type    = packed array[1..tt_termheight] of row_ptr_element;
+
+var
+tt_capabilities : terminal_capabilities;
+real_x, real_y,
+imag_x, imag_y : integer;
+tmp_ptrs,
+row_ptrs : row_ptr_type;
+imag_row : row_ptr_element;
+parse_table : parse_table_ptr;
+cmd_introducer : key_code_range;
+take_back_buffer : key_code_range;
+take_back_flag : boolean;
+control_chars,
+terminators : set of 0..ord_maxchar;
+key_mapping : array [1..num_ibm_function_keys] of key_names_range;
+
+{}procedure tt_putchar(ch:char);
+
+begin
+write(ch);
+end;
+
+{}procedure tt_putcursor(x,y:integer);
+
+begin
+real_x := x;
+real_y := y;
+gotoxy(x,y);
+end;
+
+{}procedure tt_upcursor(dist:integer);
+
+begin
+real_y := real_y - dist;
+gotoxy(real_x, real_y);
+end;
+
+{}procedure tt_clsc;
+
+begin
+real_x := 1;
+real_y := 1;
+clrscr;
+end;
+
+{}procedure tt_cles;
+
+var
+i : integer;
+begin
+clreol;
+for i := imag_y to tt_termheight do
+  begin
+  gotoxy(1,i);
+  clreol;
+  end;
+{gotoxy(real_x,real_y);}
+end;
+
+{}procedure tt_clel;
+
+begin
+clreol;
+end;
+
+{}procedure tt_inln(count:integer);
+
+begin
+{?}real_x := 1;
+for count := 1 to count do
+  insline;
+end;
+
+{}procedure tt_dlln(count:integer);
+
+begin
+{?}real_x := 1;
+for count := 1 to count do
+  delline;
+end;
+
+{}procedure tt_scrolldn;
+
+begin
+tt_inln(1);
+end;
+
+{}procedure tt_setinsmod(mode:integer);
+
+begin
+end;
+
+{}procedure tt_inch(count:integer);
+
+begin
+end;
+
+{}procedure tt_dlch(count:integer);
+
+begin
+end;
+
+{************ External Routines appear below this line ************}
+
+procedure vdu_trmfail{(status:integer)};
+
+begin
+exit{(status)};
+end;
+
+procedure vdu_putcurs{(x,y:integer)};
+
+begin
+imag_x := x;
+imag_y := y;
+imag_row := row_ptrs[y];
+tt_putcursor(x,y);
+end;
+
+procedure vdu_fixcurs{};
+
+begin
+tt_putcursor(imag_x, imag_y);
+end;
+
+procedure vdu_initterm{};
+
+begin
+{Nothing to do here}
+clrscr;
+end;
+
+procedure vdu_resetterm{};
+
+begin
+{Nothing to do here}
+clrscr;
+end;
+
+procedure vdu_movecurs {(
+                x,
+                y : scr_col_range)};
+
+begin
+imag_x := x;
+imag_y := y;
+imag_row := row_ptrs[imag_y];
+vdu_fixcurs;
+end;
+
+procedure vdu_flush {(
+                  wait : boolean)};
+
+begin
+vdu_fixcurs;
+end;
+
+procedure vdu_beep{};
+
+begin
+sound(220);
+delay(150);
+nosound;
+end;
+
+procedure vdu_cntrlcatch{};
+
+begin
+{Don't know about this}
+end;
+
+procedure vdu_cleareol{};
+
+begin
+if (imag_x <> tt_termwidth) then
+  begin
+  {we have to clear the line}
+{  fillchar(row_ptrs[imag_y]^[imag_x], tt_termwidth-imag_x, ' ');}
+  vdu_fixcurs;
+  tt_clel;
+  end;
+end;
+
+procedure vdu_displaystr {(
+                    str_len  : scr_col_range;
+                var str_start;
+                    opts     : integer)};
+
+var
+hit_margin : boolean;
+tmp_index  : integer;
+
+{******comparing start of lines not yet implemented}
+begin
+hit_margin := imag_x + str_len >= tt_termwidth;
+if hit_margin and (imag_y = tt_termheight) then
+  str_len := tt_termwidth - imag_x;
+tmp_index := imag_x;
+vdu_fixcurs;
+for tmp_index := tmp_index to str_len do
+  begin
+  write(str_object(str_start)[tmp_index]);   {?? is this right ??}
+  row_ptrs[imag_y]^[imag_x] := str_object(str_start)[tmp_index];
+  inc(imag_x);
+  end;
+if ((opts and out_m_cleareol) <> 0) and not hit_margin then
+  vdu_cleareol;
+end;
+
+procedure vdu_displaych {(
+                ch : char)};
+
+begin
+if imag_x <= tt_termwidth then
+  begin
+  vdu_fixcurs;
+  write(ch);
+  row_ptrs[imag_y]^[imag_x] := ch;
+  inc(imag_x);
+  end;
+end;
+
+procedure vdu_clearscr{};
+
+var
+i : integer;
+begin
+for i := 1 to tt_termheight do
+  fillchar(row_ptrs[i]^[1], tt_termwidth, ' ');
+tt_clsc;
+imag_x := 1;
+imag_y := 1;
+imag_row := row_ptrs[1];
+end;
+
+procedure vdu_cleareos{};
+
+var
+index : integer;
+begin
+vdu_fixcurs;
+fillchar(row_ptrs[imag_y]^[imag_x], tt_termwidth-imag_x, ' ');
+for index := succ(imag_y) to tt_termheight do
+  fillchar(row_ptrs[index]^[1], tt_termwidth, ' ');
+tt_cles;
+end;
+
+procedure vdu_redrawscr{};
+
+begin
+
+
+{!!!!!need some more work here!!!!!!}
+
+
+end;
+
+procedure vdu_scrollup {(
+                n : integer)};
+
+var
+tmp_x,
+tmp_y,
+j, i : integer;
+begin
+if n >= tt_termheight then
+  vdu_clearscr
+else
+  begin
+  imag_y := tt_termheight;
+  imag_row := row_ptrs[(imag_y)];
+  vdu_fixcurs;
+
+{!!!! think some more about this!!!!}
+
+  for i := 1 to n do
+    writeln;
+  for i := 1 to n do
+    tmp_ptrs[i] := row_ptrs[i];
+  for i := 1 to tt_termheight - n do
+    row_ptrs[i] := row_ptrs[n+i];
+  for i := 1 to n do
+    row_ptrs[tt_termheight - n + i] := tmp_ptrs[i];
+  imag_row := row_ptrs[tt_termheight];
+  for i := n downto 1 do
+    fillchar(tmp_ptrs[i]^[1], tt_termwidth, ' ');
+
+  tmp_x := imag_x;
+  tmp_y := imag_y;
+  for i := pred(tt_termheight) - n to tt_termheight - 2 do
+    begin
+{    gotoxy(1,i);
+    for j := 1 to pred(tt_termwidth) do
+      write(row_ptrs[i]^[j]);}
+    inc(real_y);
+    end;
+  real_x := 1;
+  imag_x := tmp_x;
+  imag_y := tmp_y;
+  imag_row := row_ptrs[imag_y];
+  end;
+end;
+
+procedure vdu_deletelines {(
+                n     : integer;
+                clear : boolean)};
+
+var
+i : integer;
+begin
+if n >= tt_termheight-imag_y then
+  begin
+  vdu_cleareos;
+  end
+else
+  begin
+  vdu_fixcurs;
+  for i := imag_y to tt_termheight-n do
+    row_ptrs[i] := row_ptrs[i+n];
+  tt_dlln(n);
+  for i := succ(tt_termheight-n) to tt_termheight do
+    fillchar(row_ptrs[i]^[1], tt_termwidth, ' ');
+  end;
+end;
+
+procedure vdu_insertlines {(
+                n     : integer)};
+
+var
+i : integer;
+begin
+if n >= tt_termheight - imag_y then
+  begin
+  vdu_cleareos;
+  end
+else
+  begin
+  vdu_fixcurs;
+  for i := tt_termheight downto imag_y+n do
+    row_ptrs[i] := row_ptrs[i-n];
+  tt_inln(n);
+  for i := imag_y to pred(imag_y+n) do
+    fillchar(row_ptrs[i]^[1], tt_termwidth, ' ');
+  vdu_fixcurs;
+  end;
+end;
+
+procedure vdu_insertchars {(
+                n : scr_col_range)};
+
+var
+old_x : integer;
+begin
+if n > tt_termwidth - imag_x then
+  n := tt_termwidth - imag_x;
+if n > 0 then
+  begin
+  old_x := imag_x;
+  move(row_ptrs[imag_y]^[imag_x], row_ptrs[imag_y]^[imag_x+n],
+       tt_termwidth - imag_x + n);
+{  fillchar(row_ptrs[imag_y]^[imag_x], n, ' ');}
+  for old_x := imag_x to tt_termwidth do
+    write(row_ptrs[imag_y]^[old_x]);
+{  vdu_displaystr(tt_termwidth - imag_x, imag_row^[1], 0);
+  imag_x := old_x}
+  end;
+end;
+
+procedure vdu_deletechars {(
+                n : scr_col_range)};
+
+var
+old_x : integer;
+begin
+if n > 0 then
+  begin
+  old_x := imag_x;
+  move(row_ptrs[imag_y]^[imag_x+n], row_ptrs[imag_y]^[imag_x],
+       succ(tt_termwidth-(imag_x+n)));
+{  imag_x := imag_x + n;}
+  fillchar(row_ptrs[imag_y]^[tt_termwidth-n], n, ' ');
+  vdu_displaystr(tt_termwidth - imag_x, imag_row^[imag_x], 0);
+  imag_x := old_x;
+  end;
+end;
+
+procedure vdu_displaycrlf{};
+
+begin
+if imag_y = tt_termheight then
+  begin
+  vdu_scrollup(1);
+  imag_x := 1;
+  end
+else
+  begin
+  inc(imag_y);
+  imag_row := row_ptrs[imag_y];
+  imag_x := 1;
+  vdu_fixcurs;
+  end;
+end;
+
+procedure vdu_take_back_key {(
+                key : key_code_range)};
+
+begin
+take_back_flag := true;
+take_back_buffer := key;
+end;
+
+procedure vdu_new_introducer {(
+                key : key_code_range)};
+
+begin
+terminators := control_chars;
+if key > 0 then
+  terminators := terminators + [key];
+cmd_introducer := key;
+end;
+
+function vdu_get_key {
+        : key_code_range};
+
+var
+ch : key_code_range;
+begin
+if take_back_flag then
+  begin
+  take_back_flag := false;
+  ch := take_back_buffer;
+  end
+else
+  begin
+  ch := ord(readkey);
+  if ch = 0 then
+    begin
+    ch := key_mapping[ord(readkey)];
+    if ch <> 0 then
+      ch := key_name_list_ptr^[ch].key_code;
+    end;
+  end;
+vdu_get_key := ch;
+end;
+
+procedure vdu_get_input {(
+                prompt     : str_object;
+                prompt_len : strlen_range;
+        var     get        : str_object;
+                get_len    : strlen_range;
+        var     outlen     : strlen_range)};
+
+var
+key : key_code_range;
+begin
+vdu_displaystr(prompt_len, prompt[1], out_m_cleareol);
+vdu_flush(false);
+outlen := 0;
+if tt_termwidth + imag_x < get_len then
+  get_len := tt_termwidth - imag_x;
+key := vdu_get_key;
+fillchar(get[1], sizeof(get), ' ');
+while (get_len > 0) and (key <> cr) do
+  begin
+  if key <> cr then
+    begin
+    if (outlen > 0) and (key = bs) then
+      begin
+      inc(get_len);
+      dec(outlen);
+      dec(imag_x);
+      vdu_displaych(' ');
+      dec(imag_x);
+      end
+    else
+      begin
+      if (key < 0) or (key in control_chars) then
+        begin
+        vdu_beep;
+        end
+      else
+        begin
+        vdu_displaych(chr(key));
+        inc(outlen);
+        get[outlen] := chr(key);
+        end;
+      end;
+    key := vdu_get_key;
+    dec(get_len);
+    end;
+  end;
+end;
+
+procedure vdu_get_help {(
+                prompt_str : str_object;
+                prompt_len : strlen_range;
+        var     get_str    : str_object;
+                get_len    : strlen_range;
+        var     outlen     : strlen_range)};
+
+begin
+end;
+
+procedure vdu_insert_mode {(
+                turn_on : boolean)};
+
+begin
+end;
+
+procedure vdu_get_text {(
+                buflen : integer;
+        var     buffer : str_object;
+        var     outlen : strlen_range)};
+
+var
+key : key_code_range;
+begin
+outlen := 0;
+fillchar(buffer[1], sizeof(buffer), ' ');
+if tt_termwidth - imag_x < buflen then
+  buflen := tt_termwidth - imag_x;
+while (buflen > 0) do
+  begin
+  key := vdu_get_key;
+  if (key in terminators) or ( key <= 0) then
+    begin
+    vdu_take_back_key(key);
+    buflen := 0;
+    end
+  else
+    begin
+    vdu_insertchars(1);
+    vdu_displaych(chr(key));
+    inc(outlen);
+    buffer[outlen] := chr(key);
+    dec(buflen);
+    end;
+  end;
+end;
+
+function vdu_init {(
+                outbuflen     : integer;
+        var     capabilities  : terminal_capabilities;
+        var     terminal_info : terminal_info_type;
+        var     ctrl_c_flag  : boolean)
+        : boolean};
+
+var
+index : integer;
+begin
+vdu_init := true;
+with terminal_info do
+  begin
+  height := tt_termheight;
+  width := tt_termwidth;
+  end; {with terminal_info}
+capabilities := [trmflags_v_clsc, trmflags_v_cles, trmflags_v_clel,
+                 trmflags_v_inln, trmflags_v_inch, trmflags_v_dlln,
+                 trmflags_v_dlch, trmflags_v_scdn, trmflags_v_inmd,
+                 trmflags_v_wrap];
+tt_capabilities := capabilities;
+
+cmd_introducer := 0;
+imag_row := nil;
+real_x := -10;  real_y := -10;
+{imag_x := 0;    imag_y := 0;}
+imag_x := 1;    imag_y := 1;
+
+for index := 1 to tt_termheight do
+  begin
+  getmem(row_ptrs[index],succ(tt_termwidth));
+  fillchar(row_ptrs[index]^[1], tt_termwidth, ' ');
+  end;
+end;
+
+procedure vdu_free{};
+
+begin
+vdu_putcurs(1, tt_termheight);
+writeln;
+end;
+
+procedure vdu_keyboard_init {(
+        var     nr_key_names      : key_names_range;
+        var     key_name_list_ptr : key_name_array_ptr;
+        var     key_introducers   : accept_set_type;
+        var     terminal_info     : terminal_info_type)};
+
+var
+i : word;
+begin
+nr_key_names := 136;
+getmem(key_name_list_ptr, (nr_key_names + 1) * 45{sizeof(key_name_record)});
+for i := 1 to 32 do
+  key_name_list_ptr^[i].key_code := key_code_range(i - 1);
+for i := 33 to nr_key_names do
+  key_name_list_ptr^[i].key_code := key_code_range(32 - i);
+key_name_list_ptr^[ 1].key_name := 'CONTROL-@                               ';
+key_name_list_ptr^[ 2].key_name := 'CONTROL-A                               ';
+key_name_list_ptr^[ 3].key_name := 'CONTROL-B                               ';
+key_name_list_ptr^[ 4].key_name := 'CONTROL-C                               ';
+key_name_list_ptr^[ 5].key_name := 'CONTROL-D                               ';
+key_name_list_ptr^[ 6].key_name := 'CONTROL-E                               ';
+key_name_list_ptr^[ 7].key_name := 'CONTROL-F                               ';
+key_name_list_ptr^[ 8].key_name := 'CONTROL-G                               ';
+key_name_list_ptr^[ 9].key_name := 'CONTROL-H                               ';
+key_name_list_ptr^[10].key_name := 'CONTROL-I                               ';
+key_name_list_ptr^[11].key_name := 'CONTROL-J                               ';
+key_name_list_ptr^[12].key_name := 'CONTROL-K                               ';
+key_name_list_ptr^[13].key_name := 'CONTROL-L                               ';
+key_name_list_ptr^[14].key_name := 'CONTROL-M                               ';
+key_name_list_ptr^[15].key_name := 'CONTROL-N                               ';
+key_name_list_ptr^[16].key_name := 'CONTROL-O                               ';
+key_name_list_ptr^[17].key_name := 'CONTROL-P                               ';
+key_name_list_ptr^[18].key_name := 'CONTROL-Q                               ';
+key_name_list_ptr^[19].key_name := 'CONTROL-R                               ';
+key_name_list_ptr^[20].key_name := 'CONTROL-S                               ';
+key_name_list_ptr^[21].key_name := 'CONTROL-T                               ';
+key_name_list_ptr^[22].key_name := 'CONTROL-U                               ';
+key_name_list_ptr^[23].key_name := 'CONTROL-V                               ';
+key_name_list_ptr^[24].key_name := 'CONTROL-W                               ';
+key_name_list_ptr^[25].key_name := 'CONTROL-X                               ';
+key_name_list_ptr^[26].key_name := 'CONTROL-Y                               ';
+key_name_list_ptr^[27].key_name := 'CONTROL-Z                               ';
+key_name_list_ptr^[28].key_name := 'CONTROL-[                               ';
+key_name_list_ptr^[29].key_name := 'CONTROL-\                               ';
+key_name_list_ptr^[30].key_name := 'CONTROL-]                               ';
+key_name_list_ptr^[31].key_name := 'CONTROL-^                               ';
+key_name_list_ptr^[32].key_name := 'CONTROL-_                               ';
+key_name_list_ptr^[33].key_name := 'ALT-A                                   ';
+key_name_list_ptr^[34].key_name := 'ALT-B                                   ';
+key_name_list_ptr^[35].key_name := 'ALT-C                                   ';
+key_name_list_ptr^[36].key_name := 'ALT-D                                   ';
+key_name_list_ptr^[37].key_name := 'ALT-E                                   ';
+key_name_list_ptr^[38].key_name := 'ALT-F                                   ';
+key_name_list_ptr^[39].key_name := 'ALT-G                                   ';
+key_name_list_ptr^[40].key_name := 'ALT-H                                   ';
+key_name_list_ptr^[41].key_name := 'ALT-I                                   ';
+key_name_list_ptr^[42].key_name := 'ALT-J                                   ';
+key_name_list_ptr^[43].key_name := 'ALT-K                                   ';
+key_name_list_ptr^[44].key_name := 'ALT-L                                   ';
+key_name_list_ptr^[45].key_name := 'ALT-M                                   ';
+key_name_list_ptr^[46].key_name := 'ALT-N                                   ';
+key_name_list_ptr^[47].key_name := 'ALT-O                                   ';
+key_name_list_ptr^[48].key_name := 'ALT-P                                   ';
+key_name_list_ptr^[49].key_name := 'ALT-Q                                   ';
+key_name_list_ptr^[50].key_name := 'ALT-R                                   ';
+key_name_list_ptr^[51].key_name := 'ALT-S                                   ';
+key_name_list_ptr^[52].key_name := 'ALT-T                                   ';
+key_name_list_ptr^[53].key_name := 'ALT-U                                   ';
+key_name_list_ptr^[54].key_name := 'ALT-V                                   ';
+key_name_list_ptr^[55].key_name := 'ALT-W                                   ';
+key_name_list_ptr^[56].key_name := 'ALT-X                                   ';
+key_name_list_ptr^[57].key_name := 'ALT-Y                                   ';
+key_name_list_ptr^[58].key_name := 'ALT-Z                                   ';
+key_name_list_ptr^[59].key_name := 'FUNCTION-1                              ';
+key_name_list_ptr^[60].key_name := 'FUNCTION-2                              ';
+key_name_list_ptr^[61].key_name := 'FUNCTION-3                              ';
+key_name_list_ptr^[62].key_name := 'FUNCTION-4                              ';
+key_name_list_ptr^[63].key_name := 'FUNCTION-5                              ';
+key_name_list_ptr^[64].key_name := 'FUNCTION-6                              ';
+key_name_list_ptr^[65].key_name := 'FUNCTION-7                              ';
+key_name_list_ptr^[66].key_name := 'FUNCTION-8                              ';
+key_name_list_ptr^[67].key_name := 'FUNCTION-9                              ';
+key_name_list_ptr^[68].key_name := 'FUNCTION-10                             ';
+key_name_list_ptr^[69].key_name := 'SHIFT-FUNCTION-1                        ';
+key_name_list_ptr^[70].key_name := 'SHIFT-FUNCTION-2                        ';
+key_name_list_ptr^[71].key_name := 'SHIFT-FUNCTION-3                        ';
+key_name_list_ptr^[72].key_name := 'SHIFT-FUNCTION-4                        ';
+key_name_list_ptr^[73].key_name := 'SHIFT-FUNCTION-5                        ';
+key_name_list_ptr^[74].key_name := 'SHIFT-FUNCTION-6                        ';
+key_name_list_ptr^[75].key_name := 'SHIFT-FUNCTION-7                        ';
+key_name_list_ptr^[76].key_name := 'SHIFT-FUNCTION-8                        ';
+key_name_list_ptr^[77].key_name := 'SHIFT-FUNCTION-9                        ';
+key_name_list_ptr^[78].key_name := 'SHIFT-FUNCTION-10                       ';
+key_name_list_ptr^[79].key_name := 'CONTROL-FUNCTION-1                      ';
+key_name_list_ptr^[80].key_name := 'CONTROL-FUNCTION-2                      ';
+key_name_list_ptr^[81].key_name := 'CONTROL-FUNCTION-3                      ';
+key_name_list_ptr^[82].key_name := 'CONTROL-FUNCTION-4                      ';
+key_name_list_ptr^[83].key_name := 'CONTROL-FUNCTION-5                      ';
+key_name_list_ptr^[84].key_name := 'CONTROL-FUNCTION-6                      ';
+key_name_list_ptr^[85].key_name := 'CONTROL-FUNCTION-7                      ';
+key_name_list_ptr^[86].key_name := 'CONTROL-FUNCTION-8                      ';
+key_name_list_ptr^[87].key_name := 'CONTROL-FUNCTION-9                      ';
+key_name_list_ptr^[88].key_name := 'CONTROL-FUNCTION-10                     ';
+key_name_list_ptr^[89].key_name := 'ALT-FUNCTION-1                          ';
+key_name_list_ptr^[90].key_name := 'ALT-FUNCTION-2                          ';
+key_name_list_ptr^[91].key_name := 'ALT-FUNCTION-3                          ';
+key_name_list_ptr^[92].key_name := 'ALT-FUNCTION-4                          ';
+key_name_list_ptr^[93].key_name := 'ALT-FUNCTION-5                          ';
+key_name_list_ptr^[94].key_name := 'ALT-FUNCTION-6                          ';
+key_name_list_ptr^[95].key_name := 'ALT-FUNCTION-7                          ';
+key_name_list_ptr^[96].key_name := 'ALT-FUNCTION-8                          ';
+key_name_list_ptr^[97].key_name := 'ALT-FUNCTION-9                          ';
+key_name_list_ptr^[98].key_name := 'ALT-FUNCTION-10                         ';
+key_name_list_ptr^[99].key_name := 'ALT-1                                   ';
+key_name_list_ptr^[100].key_name := 'ALT-2                                   ';
+key_name_list_ptr^[101].key_name := 'ALT-3                                   ';
+key_name_list_ptr^[102].key_name := 'ALT-4                                   ';
+key_name_list_ptr^[103].key_name := 'ALT-5                                   ';
+key_name_list_ptr^[104].key_name := 'ALT-6                                   ';
+key_name_list_ptr^[105].key_name := 'ALT-7                                   ';
+key_name_list_ptr^[106].key_name := 'ALT-8                                   ';
+key_name_list_ptr^[107].key_name := 'ALT-9                                   ';
+key_name_list_ptr^[108].key_name := 'ALT-10                                  ';
+key_name_list_ptr^[109].key_name := 'ALT-MINUS                               ';
+key_name_list_ptr^[110].key_name := 'ALT-EQUALS                              ';
+key_name_list_ptr^[111].key_name := 'HOME                                    ';
+key_name_list_ptr^[112].key_name := 'UP-ARROW                                ';
+key_name_list_ptr^[113].key_name := 'PAGE-UP                                 ';
+key_name_list_ptr^[114].key_name := 'LEFT-ARROW                              ';
+key_name_list_ptr^[115].key_name := 'RIGHT-ARROW                             ';
+key_name_list_ptr^[116].key_name := 'END                                     ';
+key_name_list_ptr^[117].key_name := 'DOWN-ARROW                              ';
+key_name_list_ptr^[118].key_name := 'PAGE-DOWN                               ';
+key_name_list_ptr^[119].key_name := 'INSERT                                  ';
+key_name_list_ptr^[120].key_name := 'DELETE                                  ';
+key_name_list_ptr^[121].key_name := 'CONTROL-PRINT-SCREEN                    ';
+key_name_list_ptr^[122].key_name := 'CONTROL-LEFT-ARROW                      ';
+key_name_list_ptr^[123].key_name := 'CONTROL-RIGHT-ARROW                     ';
+key_name_list_ptr^[124].key_name := 'CONTROL-END                             ';
+key_name_list_ptr^[125].key_name := 'CONTROL-PAGE-DOWN                       ';
+key_name_list_ptr^[126].key_name := 'CONTROL-HOME                            ';
+key_name_list_ptr^[127].key_name := 'CONTROL-PAGE-UP                         ';
+key_name_list_ptr^[128].key_name := 'FUNCTION-11                             ';
+key_name_list_ptr^[129].key_name := 'FUNCTION-12                             ';
+key_name_list_ptr^[130].key_name := 'SHIFT-FUNCTION-11                       ';
+key_name_list_ptr^[131].key_name := 'SHIFT-FUNCTION-12                       ';
+key_name_list_ptr^[132].key_name := 'CONTROL-FUNCTION-11                     ';
+key_name_list_ptr^[133].key_name := 'CONTROL-FUNCTION-12                     ';
+key_name_list_ptr^[134].key_name := 'ALT-FUNCTION-11                         ';
+key_name_list_ptr^[135].key_name := 'ALT-FUNCTION-12                         ';
+key_name_list_ptr^[136].key_name := 'SHIFT-TAB                               ';
+
+for i := 1 to num_ibm_function_keys do
+  key_mapping[i] := 0;
+
+key_mapping[ 15] := 136;
+key_mapping[ 16] := 49;
+key_mapping[ 17] := 55;
+key_mapping[ 18] := 37;
+key_mapping[ 19] := 50;
+key_mapping[ 20] := 52;
+key_mapping[ 21] := 57;
+key_mapping[ 22] := 53;
+key_mapping[ 23] := 41;
+key_mapping[ 24] := 47;
+key_mapping[ 25] := 48;
+key_mapping[ 30] := 33;
+key_mapping[ 31] := 51;
+key_mapping[ 32] := 36;
+key_mapping[ 33] := 38;
+key_mapping[ 34] := 39;
+key_mapping[ 35] := 40;
+key_mapping[ 36] := 42;
+key_mapping[ 37] := 43;
+key_mapping[ 38] := 44;
+key_mapping[ 44] := 58;
+key_mapping[ 45] := 56;
+key_mapping[ 46] := 35;
+key_mapping[ 47] := 54;
+key_mapping[ 48] := 34;
+key_mapping[ 49] := 46;
+key_mapping[ 50] := 45;
+key_mapping[ 59] := 59;
+key_mapping[ 60] := 60;
+key_mapping[ 61] := 61;
+key_mapping[ 62] := 62;
+key_mapping[ 63] := 63;
+key_mapping[ 64] := 64;
+key_mapping[ 65] := 65;
+key_mapping[ 66] := 66;
+key_mapping[ 67] := 67;
+key_mapping[ 68] := 68;
+key_mapping[ 71] := 111;
+key_mapping[ 72] := 112;
+key_mapping[ 73] := 113;
+key_mapping[ 75] := 114;
+key_mapping[ 77] := 115;
+key_mapping[ 79] := 116;
+key_mapping[ 80] := 117;
+key_mapping[ 81] := 118;
+key_mapping[ 82] := 119;
+key_mapping[ 83] := 120;
+key_mapping[ 84] := 69;
+key_mapping[ 85] := 70;
+key_mapping[ 86] := 71;
+key_mapping[ 87] := 72;
+key_mapping[ 88] := 73;
+key_mapping[ 89] := 74;
+key_mapping[ 90] := 75;
+key_mapping[ 91] := 76;
+key_mapping[ 92] := 77;
+key_mapping[ 93] := 78;
+key_mapping[ 94] := 79;
+key_mapping[ 95] := 80;
+key_mapping[ 96] := 81;
+key_mapping[ 97] := 82;
+key_mapping[ 98] := 83;
+key_mapping[ 99] := 84;
+key_mapping[100] := 85;
+key_mapping[101] := 86;
+key_mapping[102] := 87;
+key_mapping[103] := 88;
+key_mapping[104] := 89;
+key_mapping[105] := 90;
+key_mapping[106] := 91;
+key_mapping[107] := 92;
+key_mapping[108] := 93;
+key_mapping[109] := 94;
+key_mapping[110] := 95;
+key_mapping[111] := 96;
+key_mapping[112] := 97;
+key_mapping[113] := 98;
+key_mapping[114] := 121;
+key_mapping[115] := 122;
+key_mapping[116] := 123;
+key_mapping[117] := 124;
+key_mapping[118] := 125;
+key_mapping[119] := 126;
+key_mapping[120] := 99;
+key_mapping[121] := 100;
+key_mapping[122] := 101;
+key_mapping[123] := 102;
+key_mapping[124] := 103;
+key_mapping[125] := 104;
+key_mapping[126] := 105;
+key_mapping[127] := 106;
+key_mapping[128] := 107;
+key_mapping[129] := 108;
+key_mapping[130] := 109;
+key_mapping[131] := 110;
+key_mapping[132] := 127;
+key_mapping[133] := 128;
+key_mapping[134] := 129;
+key_mapping[135] := 130;
+key_mapping[136] := 131;
+key_mapping[137] := 132;
+key_mapping[138] := 133;
+key_mapping[139] := 134;
+key_mapping[140] := 135;
+
+key_introducers := [];
+parse_table := nil;
+end;
+
+
+begin
+take_back_flag := false;
+control_chars := [$00, $01, $02, $03, $04, $05, $06, $07,
+                  $08, $09, $0A, $0B, $0C, $0D, $0E, $0F,
+                  $10, $11, $12, $13, $14, $15, $16, $17,
+                  $18, $19, $1A, $1B, $1C, $1D, $1E, $1F,
+                  $7F];
+end.
+{#endif}

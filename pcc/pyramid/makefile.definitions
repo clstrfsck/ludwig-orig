@@ -1,0 +1,20 @@
+# ======================================================================
+# System dependent definitions
+#
+# CPU:  Pyramid
+# O/S:  OSx
+# ======================================================================
+
+P       = p
+
+RM_     = $#
+
+PCCFLAGS= -Dpyr -Dunix -DISO1 -Ddebug
+
+PFLAGS  = -gx
+
+CFLAGS  = -DDEBUG -gx
+
+LDFLAGS = -w
+LD2FLAGS= -lc /.attlib/libc.a
+
